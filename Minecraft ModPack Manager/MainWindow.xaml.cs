@@ -65,6 +65,8 @@ namespace Minecraft_ModPack_Manager
                 Pathes.Text = profilePath;
                 InstancesPath.path = path.path + "\\Instances";
             }
+
+
         }
 
         private MinecraftPathGetter CheckForCurseForge() {
@@ -214,6 +216,10 @@ namespace Minecraft_ModPack_Manager
             var contents = (JArray)Newtonsoft.Json.JsonConvert.DeserializeObject(contentsJson);
 
             string workingDirectory = Environment.CurrentDirectory;
+            if (!Directory.Exists(workingDirectory + "\\modList"))
+            {
+                Directory.CreateDirectory(workingDirectory + "\\modList");
+            }
             DirectoryInfo dirInstalled = new DirectoryInfo(workingDirectory + "\\modList");
             foreach (FileInfo file in dirInstalled.GetFiles())
             {
