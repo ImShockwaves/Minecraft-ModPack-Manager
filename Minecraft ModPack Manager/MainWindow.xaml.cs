@@ -18,6 +18,11 @@ using System.Drawing;
 using System.IO;
 using static System.Net.WebRequestMethods;
 using System.Threading;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http;
+using Newtonsoft.Json.Linq;
+using System.Diagnostics.Metrics;
 
 class MinecraftPathGetter {
     public bool status;
@@ -46,6 +51,7 @@ namespace Minecraft_ModPack_Manager
         public MainWindow()
         {
             InitializeComponent();
+            downloadMods();
             MinecraftPathGetter path = CheckForCurseForge();
             if (path.status == false)
             {
@@ -112,7 +118,7 @@ namespace Minecraft_ModPack_Manager
             string workingDirectory = Environment.CurrentDirectory;
 
             string[] modFolderFiles = Directory.GetFiles(InstancesPath.path + "\\" + (string)InstanceSelector.SelectedValue + "\\mods");
-            string[] modAssets = Directory.GetFiles(Directory.GetParent(workingDirectory)!.Parent!.Parent!.FullName + "\\modList");
+            string[] modAssets = Directory.GetFiles(workingDirectory + "\\modList");
 
             Mods.installedMods = SplitAndGetLastvalue(modAssets);
             Mods.profileMods = SplitAndGetLastvalue(modFolderFiles);
@@ -120,7 +126,7 @@ namespace Minecraft_ModPack_Manager
             bool toUpdate = Enumerable.SequenceEqual(Mods.installedMods, Mods.profileMods);
 
 
-            DifferencesStatus.Visibility= Visibility.Visible;
+            DifferencesStatus.Visibility = Visibility.Visible;
             if (toUpdate)
             {
                 DifferencesStatus.Foreground = Brushes.Green;
@@ -154,7 +160,7 @@ namespace Minecraft_ModPack_Manager
         {
             DirectoryInfo dirProfile = new DirectoryInfo(InstancesPath.modPath);
             string workingDirectory = Environment.CurrentDirectory;
-            DirectoryInfo dirInstalled = new DirectoryInfo(Directory.GetParent(workingDirectory)!.Parent!.Parent!.FullName + "\\modList");
+            DirectoryInfo dirInstalled = new DirectoryInfo(workingDirectory + "\\modList");
 
 
             int maximum = dirProfile.GetFiles().Length + dirInstalled.GetFiles().Length;
@@ -174,7 +180,7 @@ namespace Minecraft_ModPack_Manager
                 //Thread.Sleep(100);
             }
 
-            string[] filesToInstall = Directory.GetFiles(Directory.GetParent(workingDirectory)!.Parent!.Parent!.FullName + "\\modList");
+            string[] filesToInstall = Directory.GetFiles(workingDirectory + "\\modList");
             foreach (string s in filesToInstall)
             {
                 // Use static Path methods to extract only the file name from the path.
@@ -197,6 +203,45 @@ namespace Minecraft_ModPack_Manager
             Hide();
             Environment.Exit(1);
         }
+
+        private async void downloadMods() {
+            var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.UserAgent.Add(
+                new ProductInfoHeaderValue("MyApplication", "1"));
+            var repo = "ImShockwaves/Minecraft-ModPack-Manager";
+            var contentsUrl = $"https://api.github.com/repos/ImShockwaves/Minecraft-ModPack-Manager/contents/Minecraft%20ModPack%20Manager/modList?ref=master";
+            var contentsJson = await httpClient.GetStringAsync(contentsUrl);
+            var contents = (JArray)Newtonsoft.Json.JsonConvert.DeserializeObject(contentsJson);
+
+            string workingDirectory = Environment.CurrentDirectory;
+            DirectoryInfo dirInstalled = new DirectoryInfo(workingDirectory + "\\modList");
+            foreach (FileInfo file in dirInstalled.GetFiles())
+            {
+                file.Delete();
+            }
+
+            foreach (var file in contents)
+            {
+                var fileType = (string)file["type"];
+                if (fileType == "dir")
+                {
+                    var directoryContentsUrl = (string)file["url"];
+                    // use this URL to list the contents of the folder
+                    Console.WriteLine($"DIR: {directoryContentsUrl}");
+                }
+                else if (fileType == "file")
+                {
+                    var downloadUrl = (string)file["download_url"];
+                    // use this URL to download the contents of the file
+                    using (var client = new WebClient())
+                    {
+                        client.DownloadFile(downloadUrl, workingDirectory + "\\modList\\" + (string)file["name"]);
+                    }
+                }
+                    //Console.WriteLine($"DOWNLOAD: {downloadUrl}");
+            }
+        }
+
     }
 
 
